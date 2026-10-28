@@ -2,12 +2,12 @@ package dev.chromabuild.neoforge;
 
 import dev.chromabuild.core.BlockPosition;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * NeoForge bootstrap only. Placement is intentionally disabled until the
- * server-authoritative execution and resource-accounting pipeline is implemented.
+ * NeoForge bootstrap. No blocks or resources are modified by this module.
  */
 @Mod(ChromaBuildMod.MOD_ID)
 public final class ChromaBuildMod {
@@ -15,7 +15,7 @@ public final class ChromaBuildMod {
     private static final Logger LOG = LoggerFactory.getLogger(ChromaBuildMod.class);
 
     public ChromaBuildMod() {
-        // This reference exercises the core dependency while remaining safe on dedicated servers.
+        NeoForge.EVENT_BUS.addListener(ChromaBuildCommands::register);
         BlockPosition origin = new BlockPosition(0, 0, 0);
         LOG.info("ChromaBuild loaded (core origin: {}, {}, {})", origin.x(), origin.y(), origin.z());
     }
