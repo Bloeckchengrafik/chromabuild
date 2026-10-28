@@ -39,7 +39,8 @@ public final class ChromaBuildCommands {
                 return InventoryProbe.report(context.getSource(),
                     samplePlan(pos.getX(), pos.getY(), pos.getZ()));
             }))
-            .then(PreviewCommands.register()));
+            .then(PreviewCommands.register())
+            .then(ParticlePreview.register()));
     }
 
     private static PlacementPlan samplePlan(int px, int py, int pz) {
