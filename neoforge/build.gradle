@@ -1,0 +1,41 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+
+version = project.mod_version
+group = 'dev.chromabuild'
+
+base { archivesName = 'chromabuild' }
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+    runs {
+        client { client() }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+    }
+    mods {
+        chromabuild {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    implementation project(':core')
+}
+
+// Bundle the pure Java core: consumers install one mod jar, not a second library.
+// Gson is provided by the Minecraft runtime; do not bundle duplicate Gson classes.
+tasks.named('jar', Jar) {
+    from project(':core').sourceSets.main.output
+    dependsOn ':core:classes'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
