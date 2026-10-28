@@ -15,7 +15,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Operator-only, non-mutating planning and inventory probes. */
+/** Operator-only non-mutating diagnostic commands. */
 public final class ChromaBuildCommands {
     private ChromaBuildCommands() { }
 
@@ -24,8 +24,8 @@ public final class ChromaBuildCommands {
             .requires(source -> source.hasPermission(2))
             .then(Commands.literal("probe").executes(context -> {
                 var player = context.getSource().getPlayerOrException();
-                var plan = samplePlan(player.blockPosition().getX(),
-                    player.blockPosition().getY(), player.blockPosition().getZ());
+                var pos = player.blockPosition();
+                var plan = samplePlan(pos.getX(), pos.getY(), pos.getZ());
                 long calcite = plan.assignments().stream()
                     .filter(a -> a.blockStateId().equals("minecraft:calcite")).count();
                 context.getSource().sendSuccess(() -> Component.literal(
@@ -38,7 +38,8 @@ public final class ChromaBuildCommands {
                 var pos = context.getSource().getPlayerOrException().blockPosition();
                 return InventoryProbe.report(context.getSource(),
                     samplePlan(pos.getX(), pos.getY(), pos.getZ()));
-            })));
+            }))
+            .then(PreviewCommands.register()));
     }
 
     private static PlacementPlan samplePlan(int px, int py, int pz) {
