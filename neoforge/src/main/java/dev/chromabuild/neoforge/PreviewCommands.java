@@ -1,6 +1,7 @@
 package dev.chromabuild.neoforge;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.chromabuild.core.BlockPosition;
@@ -23,8 +24,8 @@ import net.minecraft.commands.arguments.UuidArgument;
 import net.minecraft.network.chat.Component;
 
 /**
- * Operator-only interactive dry-run of canonical plan sessions.
- * No block edits, permission grants, or inventory consumption occur here.
+ * Operator-only interactive dry run. Never places blocks or withdraws resources.
+ * Configurable dimensions are intentionally limited to 256 candidate positions.
  */
 public final class PreviewCommands {
     private static final PlanSessions SESSIONS =
@@ -34,18 +35,18 @@ public final class PreviewCommands {
 
     public static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> register() {
         return Commands.literal("preview")
-            .executes(ctx -> {
-                var player = ctx.getSource().getPlayerOrException();
-                var origin = player.blockPosition();
-                var plan = samplePlan(origin.getX(), origin.getY(), origin.getZ());
-                var dimension = player.level().dimension().location().toString();
-                var session = SESSIONS.publish(player.getUUID(), dimension, plan);
-                ctx.getSource().sendSuccess(() -> Component.literal(
-                    "Preview ready: " + plan.assignments().size() + " blocks, revision " +
-                    session.revision() + ", session " + session.id() + ", fingerprint " +
-                    session.fingerprint() + ". Expires in 90s. Dry-run confirmation only."), false);
-                return Command.SINGLE_SUCCESS;
-            })
+            .executes(ctx -> preview(ctx.getSource(), 4, 4, 42))
+            .then(Commands.literal("rectangle")
+                .then(Commands.argument("width", IntegerArgumentType.integer(1, 16))
+                    .then(Commands.argument("height", IntegerArgumentType.integer(1, 16))
+                        .executes(ctx -> preview(ctx.getSource(),
+                            IntegerArgumentType.getInteger(ctx, "width"),
+                            IntegerArgumentType.getInteger(ctx, "height"), 42))
+                        .then(Commands.argument("seed", LongArgumentType.longArg())
+                            .executes(ctx -> preview(ctx.getSource(),
+                                IntegerArgumentType.getInteger(ctx, "width"),
+                                IntegerArgumentType.getInteger(ctx, "height"),
+                                LongArgumentType.getLong(ctx, "seed")))))))
             .then(Commands.literal("confirm")
                 .then(Commands.argument("session", UuidArgument.uuid())
                     .then(Commands.argument("revision", LongArgumentType.longArg(1))
@@ -54,6 +55,24 @@ public final class PreviewCommands {
                                 UuidArgument.getUuid(ctx, "session"),
                                 LongArgumentType.getLong(ctx, "revision"),
                                 StringArgumentType.getString(ctx, "fingerprint")))))));
+    }
+
+    private static int preview(CommandSourceStack source, int width, int height, long seed)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        var player = source.getPlayerOrException();
+        var origin = player.blockPosition();
+        var plan = samplePlan(origin.getX(), origin.getY(), origin.getZ(), width, height, seed);
+        var dimension = player.level().dimension().location().toString();
+        var session = SESSIONS.publish(player.getUUID(), dimension, plan);
+        long calcite = plan.assignments().stream()
+            .filter(a -> a.blockStateId().equals("minecraft:calcite")).count();
+        source.sendSuccess(() -> Component.literal(
+            "Preview " + width + "x" + height + " (seed " + seed + "): " +
+            calcite + " calcite, " + (plan.assignments().size() - calcite) +
+            " stone. Revision " + session.revision() + ", session " + session.id() +
+            ", fingerprint " + session.fingerprint() +
+            ". Expires in 90s. No world changes."), false);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int confirm(CommandSourceStack source, UUID id, long revision, String fingerprint)
@@ -73,17 +92,23 @@ public final class PreviewCommands {
         }
     }
 
-    private static PlacementPlan samplePlan(int px, int py, int pz) {
-        var positions = new ArrayList<BlockPosition>(16);
-        for (int x = 0; x < 4; x++)
-            for (int y = 0; y < 4; y++)
+    private static PlacementPlan samplePlan(int px, int py, int pz, int width, int height, long seed) {
+        if (width < 1 || height < 1 || (long) width * height > 256)
+            throw new IllegalArgumentException("preview rectangle must contain 1..256 blocks");
+        var positions = new ArrayList<BlockPosition>(width * height);
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
                 positions.add(new BlockPosition(px + x, py + y, pz));
         var palette = new Palette(List.of(
             new PaletteEntry("minecraft:stone", 1, 0, true, ""),
             new PaletteEntry("minecraft:calcite", 1, 1, true, "")
         ));
+        // A single-block preview has no geometric extent; supply an arbitrary
+        // nonzero axis rather than silently producing an invalid gradient.
+        var start = positions.getFirst();
+        var end = positions.size() == 1 ? new BlockPosition(px + 1, py, pz) : positions.getLast();
         return PlacementPlanner.generate(positions, palette,
-            new PlacementSettings(PlacementMode.ORGANIC_GRADIENT, 42L, 0.35, 5, 0, 0.4),
-            new GradientAxis(positions.getFirst(), positions.getLast()));
+            new PlacementSettings(PlacementMode.ORGANIC_GRADIENT, seed, 0.35, 5, 0, 0.4),
+            new GradientAxis(start, end));
     }
 }
