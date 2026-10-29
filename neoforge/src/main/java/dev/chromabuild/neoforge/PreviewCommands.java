@@ -53,6 +53,7 @@ public final class PreviewCommands {
                                 IntegerArgumentType.getInteger(ctx, "width"),
                                 IntegerArgumentType.getInteger(ctx, "height"),
                                 LongArgumentType.getLong(ctx, "seed")))))))
+            .then(Commands.literal("resources").executes(ctx -> resources(ctx.getSource())))
             .then(Commands.literal("confirm")
                 .then(Commands.argument("session", UuidArgument.uuid())
                     .then(Commands.argument("revision", LongArgumentType.longArg(1))
@@ -79,6 +80,21 @@ public final class PreviewCommands {
             ", fingerprint " + session.fingerprint() +
             ". Expires in 90s. No world changes."), false);
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static int resources(CommandSourceStack source)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        var player = source.getPlayerOrException();
+        var session = current(player.getUUID(), player.level().dimension().location().toString());
+        if (session == null) {
+            source.sendFailure(Component.literal(
+                "No active preview in this dimension. Run /chromabuild preview first."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(
+            "Inventory quote for approved session " + session.id() +
+            " revision " + session.revision() + " (not a reservation):"), false);
+        return InventoryProbe.report(source, session.plan());
     }
 
     private static int confirm(CommandSourceStack source, UUID id, long revision, String fingerprint)
