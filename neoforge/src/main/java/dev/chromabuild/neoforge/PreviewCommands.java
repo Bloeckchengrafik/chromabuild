@@ -54,6 +54,7 @@ public final class PreviewCommands {
                                 IntegerArgumentType.getInteger(ctx, "height"),
                                 LongArgumentType.getLong(ctx, "seed")))))))
             .then(Commands.literal("resources").executes(ctx -> resources(ctx.getSource())))
+            .then(Commands.literal("checkworld").executes(ctx -> WorldPreflight.report(ctx.getSource())))
             .then(Commands.literal("confirm")
                 .then(Commands.argument("session", UuidArgument.uuid())
                     .then(Commands.argument("revision", LongArgumentType.longArg(1))
