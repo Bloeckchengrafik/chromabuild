@@ -33,6 +33,12 @@ public final class PreviewCommands {
 
     private PreviewCommands() {}
 
+    /** The same session used by exact-plan confirmation; no fresh sample is generated. */
+    public static dev.chromabuild.core.session.PlanSession current(
+            UUID owner, String dimension) {
+        return SESSIONS.current(owner, dimension);
+    }
+
     public static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> register() {
         return Commands.literal("preview")
             .executes(ctx -> preview(ctx.getSource(), 4, 4, 42))

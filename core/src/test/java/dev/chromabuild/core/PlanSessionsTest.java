@@ -51,6 +51,19 @@ class PlanSessionsTest {
             old.dimension(), old.id(), old.revision(), old.fingerprint()));
     }
 
+    @Test void peekReturnsExactPlanWithoutConsuming() {
+        var owner = UUID.randomUUID();
+        var clock = new AdjustableClock();
+        var store = new PlanSessions(clock, Duration.ofSeconds(10), 2);
+        var first = store.publish(owner, "minecraft:overworld", plan("minecraft:stone"));
+        assertEquals(first, store.current(owner, "minecraft:overworld"));
+        assertNull(store.current(UUID.randomUUID(), "minecraft:overworld"));
+        assertNull(store.current(owner, "minecraft:the_nether"));
+        assertEquals(first, store.current(owner, "minecraft:overworld"));
+        clock.advance(Duration.ofSeconds(10));
+        assertNull(store.current(owner, "minecraft:overworld"));
+    }
+
     @Test void expiryRejectsConfirmationAndSnapshotsAreImmutable() {
         var owner = UUID.randomUUID();
         var clock = new AdjustableClock();

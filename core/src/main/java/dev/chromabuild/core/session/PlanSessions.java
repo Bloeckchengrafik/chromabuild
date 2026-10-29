@@ -61,6 +61,19 @@ public final class PlanSessions {
         return session;
     }
 
+    /** Read the current owner's approved preview without consuming or changing it. */
+    public PlanSession current(UUID owner, String dimension) {
+        Objects.requireNonNull(owner);
+        Objects.requireNonNull(dimension);
+        for (var session : sessions.values()) {
+            if (session.owner().equals(owner) && session.dimension().equals(dimension)
+                    && clock.instant().isBefore(session.expiresAt())) {
+                return session;
+            }
+        }
+        return null;
+    }
+
     public void invalidate(UUID owner) {
         sessions.values().removeIf(s -> s.owner().equals(owner));
     }
