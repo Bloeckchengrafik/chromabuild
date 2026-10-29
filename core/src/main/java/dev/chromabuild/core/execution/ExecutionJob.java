@@ -36,22 +36,47 @@ public final class ExecutionJob {
         while (attempts < budget && state == State.RUNNING) {
             var assignment = plan.assignments().get(cursor);
             attempts++;
-            if (!port.canPlace(assignment)) {
+            boolean allowed;
+            try {
+                allowed = port.canPlace(assignment);
+            } catch (RuntimeException failure) {
+                quarantine("validation threw: " + failure.getClass().getSimpleName());
+                continue;
+            }
+            if (!allowed) {
                 stop("validation rejected");
-            } else if (!port.debit(assignment)) {
+                continue;
+            }
+
+            boolean debited;
+            try {
+                debited = port.debit(assignment);
+            } catch (RuntimeException failure) {
+                // Debit may have extracted materials before throwing.
+                // Never retry or guess that no material was withdrawn.
+                quarantine("debit outcome unknown: " + failure.getClass().getSimpleName());
+                continue;
+            }
+            if (!debited) {
                 stop("material unavailable");
+                continue;
+            }
+
+            final boolean placedSuccessfully;
+            try {
+                placedSuccessfully = port.place(assignment);
+            } catch (RuntimeException failure) {
+                // World edits may have happened before the exception. Refunding
+                // could duplicate the item, so require explicit reconciliation.
+                quarantine("placement outcome unknown: " + failure.getClass().getSimpleName());
+                continue;
+            }
+            if (!placedSuccessfully) {
+                recover(assignment, "placement rejected");
             } else {
-                try {
-                    if (!port.place(assignment)) {
-                        recover(assignment, "placement rejected");
-                    } else {
-                        placed++;
-                        cursor++;
-                        if (cursor == plan.assignments().size()) state = State.COMPLETED;
-                    }
-                } catch (RuntimeException failure) {
-                    recover(assignment, "placement threw: " + failure.getClass().getSimpleName());
-                }
+                placed++;
+                cursor++;
+                if (cursor == plan.assignments().size()) state = State.COMPLETED;
             }
         }
         return attempts;
