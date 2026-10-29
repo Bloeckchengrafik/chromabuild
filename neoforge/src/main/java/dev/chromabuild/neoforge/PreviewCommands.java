@@ -56,6 +56,7 @@ public final class PreviewCommands {
             .then(Commands.literal("resources").executes(ctx -> resources(ctx.getSource())))
             .then(Commands.literal("checkworld").executes(ctx -> WorldPreflight.report(ctx.getSource())))
             .then(Commands.literal("readiness").executes(ctx -> LiveReadiness.report(ctx.getSource())))
+            .then(Commands.literal("placementgate").executes(ctx -> PlacementGateDiagnostics.report(ctx.getSource())))
             .then(Commands.literal("confirm")
                 .then(Commands.argument("session", UuidArgument.uuid())
                     .then(Commands.argument("revision", LongArgumentType.longArg(1))
