@@ -2,6 +2,7 @@ package dev.chromabuild.neoforge;
 
 import com.mojang.brigadier.Command;
 import dev.chromabuild.core.PlacementPlan;
+import dev.chromabuild.core.execution.MaterialEligibility;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.commands.CommandSourceStack;
@@ -24,6 +25,10 @@ public final class InventoryProbe {
         Map<Item, Integer> required = new LinkedHashMap<>();
         int unsupported = 0;
         for (var assignment : plan.assignments()) {
+            if (!MaterialEligibility.supports(assignment.blockStateId())) {
+                unsupported++;
+                continue;
+            }
             ResourceLocation id = ResourceLocation.tryParse(assignment.blockStateId());
             if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) {
                 unsupported++;
@@ -50,7 +55,10 @@ public final class InventoryProbe {
         }
         summary.append("unresolved placements: ").append(unsupported)
             .append("; missing items: ").append(missing)
-            .append(". No items consumed or blocks placed.");
+            .append(unsupported == 0 && missing == 0
+                ? ". Ordinary sample materials available (not reserved)."
+                : ". NOT READY: missing or unsupported materials.")
+            .append(" No items consumed or blocks placed.");
         source.sendSuccess(() -> Component.literal(summary.toString()), false);
         return Command.SINGLE_SUCCESS;
     }
